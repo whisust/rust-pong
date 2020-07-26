@@ -1,0 +1,9 @@
+[package]
+name = "rust-pong"
+version = "0.1.0"
+authors = ["Antoine Latrille <antoine.latrille@gmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+tetra = "0.4"
