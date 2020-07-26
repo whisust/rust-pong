@@ -17,6 +17,9 @@ struct GameState {
     player1: Entity,
     player2: Entity,
     ball: Entity,
+    winner: Option<i8>,
+    end_message: graphics::text::Text,
+    message_position: Vec2<f32>,
 }
 
 struct Entity {
@@ -85,50 +88,68 @@ impl GameState {
         let player1 = Entity::new(player1_texture, player1_position);
         let player2 = Entity::new(player2_texture, player2_position);
         let ball = Entity::with_velocity(ball_texture, ball_position, ball_velocity);
-        Ok(GameState { player1, player2, ball })
+
+        let font = graphics::text::Font::vector(ctx, "./resources/superstar.ttf", 36.0)?;
+        let text = graphics::text::Text::new("", font);
+        let message_position = Vec2::new(WINDOW_WIDTH / 2.0 - 40.0, WINDOW_HEIGHT / 2.0);
+        Ok(GameState { player1, player2, ball, winner: None, end_message: text, message_position })
+    }
+
+    fn is_done(&self) -> bool {
+        self.winner.is_some()
     }
 }
 
 impl State for GameState {
     fn update(&mut self, ctx: &mut Context) -> tetra::Result {
-        if input::is_key_down(ctx, Key::W) && !self.player1.hits_top() {
-            self.player1.position.y -= PADDLE_SPEED;
+        if !self.is_done() {
+            if input::is_key_down(ctx, Key::W) && !self.player1.hits_top() {
+                self.player1.position.y -= PADDLE_SPEED;
+            }
+            if input::is_key_down(ctx, Key::S) && !self.player1.hits_bottom() {
+                self.player1.position.y += PADDLE_SPEED;
+            }
+
+            if input::is_key_down(ctx, Key::Up) && !self.player2.hits_top() {
+                self.player2.position.y -= PADDLE_SPEED;
+            }
+            if input::is_key_down(ctx, Key::Down) && !self.player2.hits_bottom() {
+                self.player2.position.y += PADDLE_SPEED;
+            }
+
+            let player1_bounds = self.player1.bounds();
+            let player2_bounds = self.player2.bounds();
+            let ball_bounds = self.ball.bounds();
+
+            let paddle_hit = if ball_bounds.intersects(&player1_bounds) {
+                Some(&self.player1)
+            } else if ball_bounds.intersects(&player2_bounds) {
+                Some(&self.player2)
+            } else {
+                None
+            };
+
+
+            if let (Some(paddle)) = paddle_hit {
+                self.ball.velocity.x = -(self.ball.velocity.x + (BALL_ACC * self.ball.velocity.x.signum()));
+                let offset = (paddle.center().y - self.ball.center().y) / paddle.height();
+                self.ball.velocity.y += PADDLE_SPIN * -offset;
+            }
+
+            if self.ball.position.y <= 0.0 || self.ball.position.y + self.ball.height() >= WINDOW_HEIGHT {
+                self.ball.velocity.y = -self.ball.velocity.y;
+            }
+
+            self.winner = if self.ball.position.x >= self.player2.center().x {
+                Some(1)
+            } else if self.ball.position.x <= self.player1.position.x {
+                Some(2)
+            } else {
+                None
+            };
+
+            self.ball.position += self.ball.velocity;
         }
-        if input::is_key_down(ctx, Key::S) && !self.player1.hits_bottom() {
-            self.player1.position.y += PADDLE_SPEED;
-        }
-
-        if input::is_key_down(ctx, Key::Up) && !self.player2.hits_top() {
-            self.player2.position.y -= PADDLE_SPEED;
-        }
-        if input::is_key_down(ctx, Key::Down) && !self.player2.hits_bottom() {
-            self.player2.position.y += PADDLE_SPEED;
-        }
-
-        let player1_bounds = self.player1.bounds();
-        let player2_bounds = self.player2.bounds();
-        let ball_bounds = self.ball.bounds();
-
-        let paddle_hit = if ball_bounds.intersects(&player1_bounds) {
-            Some(&self.player1)
-        } else if ball_bounds.intersects(&player2_bounds) {
-            Some(&self.player2)
-        } else {
-            None
-        };
-
-
-        if let (Some(paddle)) = paddle_hit {
-            self.ball.velocity.x = -(self.ball.velocity.x + (BALL_ACC * self.ball.velocity.x.signum()));
-            let offset = (paddle.center().y - self.ball.center().y) / paddle.height();
-            self.ball.velocity.y += PADDLE_SPIN * -offset;
-        }
-
-        if self.ball.position.y <= 0.0 || self.ball.position.y + self.ball.height() >= WINDOW_HEIGHT {
-            self.ball.velocity.y = -self.ball.velocity.y;
-        }
-
-        self.ball.position += self.ball.velocity;
 
         Ok(())
     }
@@ -139,6 +160,11 @@ impl State for GameState {
         graphics::draw(ctx, &self.player1.texture, self.player1.position);
         graphics::draw(ctx, &self.player2.texture, self.player2.position);
         graphics::draw(ctx, &self.ball.texture, self.ball.position);
+
+        if self.is_done() {
+            self.end_message.set_content(format!("Player {} wins!", self.winner.unwrap()));
+            graphics::draw(ctx, &self.end_message, self.message_position);
+        };
 
         Ok(())
     }
