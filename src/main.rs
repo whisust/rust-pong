@@ -23,6 +23,14 @@ impl Entity {
     fn new(texture: Texture, position: Vec2<f32>) -> Entity {
         Entity { texture, position }
     }
+
+    fn hits_top(&self) -> bool {
+        return self.position.y <= 4.0;
+    }
+
+    fn hits_bottom(&self) -> bool {
+        return (self.position.y + self.texture.height() as f32) >= (WINDOW_HEIGHT - 4.0);
+    }
 }
 
 impl GameState {
@@ -41,20 +49,19 @@ impl GameState {
 
 impl State for GameState {
     fn update(&mut self, ctx: &mut Context) -> tetra::Result {
-        if input::is_key_down(ctx, Key::W) {
+        if input::is_key_down(ctx, Key::W) && !self.player1.hits_top() {
             self.player1.position.y -= PADDLE_SPEED;
         }
-        if input::is_key_down(ctx, Key::S) {
+        if input::is_key_down(ctx, Key::S) && !self.player1.hits_bottom() {
             self.player1.position.y += PADDLE_SPEED;
         }
 
-        if input::is_key_down(ctx, Key::Up) {
+        if input::is_key_down(ctx, Key::Up) && !self.player2.hits_top() {
             self.player2.position.y -= PADDLE_SPEED;
         }
-        if input::is_key_down(ctx, Key::Down) {
+        if input::is_key_down(ctx, Key::Down) && !self.player2.hits_bottom() {
             self.player2.position.y += PADDLE_SPEED;
         }
-
         Ok(())
     }
 
